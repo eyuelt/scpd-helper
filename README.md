@@ -5,7 +5,8 @@ that they happened as a wmv, then converts them to a mp4. Each time
 the script is run, it will update to download all of the undownloaded
 videos. 
 
-This script is modified from the one by Ben Newhouse [https://github.com/newhouseb](https://github.com/newhouseb).
+This script is modified from the one by Jeremy Keeshin [https://github.com/jkeesh](https://github.com/jkeesh), 
+which itself was modified from the one by Ben Newhouse [https://github.com/newhouseb](https://github.com/newhouseb).
 
 Unfortunately, there are lots of dependencies to get it up and running
 

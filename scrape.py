@@ -4,7 +4,7 @@ import os
 import sys
 from getpass import *
 from mechanize import Browser
-from bs4 import BeautifulSoup
+from BeautifulSoup import BeautifulSoup
 
 """
 
@@ -30,81 +30,89 @@ called watched.
 
 """
 
-def convertToMp4(wmv, mp4):
-    print "Converting ", mp4
-    os.system('HandBrakeCLI -i %s -o %s' % (wmv, mp4))
-    os.system('rm -f %s' % wmv)
+def convertToMp4(wmv_file, mp4_file):
+    print "Converting " + wmv_file + " to " + mp4_file
+    os.system('HandBrakeCLI -i %s -o %s' % (wmv_file, mp4_file))
+    os.system('rm -f %s' % wmv_file)
 
-def download(work, courseName):
-    # work[0] is url, work[1] is wmv, work[2] is mp4
-    if os.path.exists(work[1]) or os.path.exists(courseName + "/" + work[1]) or os.path.exists(courseName + "/" + work[2]) or os.path.exists("watched/"+work[1]) or os.path.exists(work[2]) or os.path.exists("watched/"+work[2]):
-        print "Already downloaded", work[1]
-        return
-
-    print "Starting", work[1]
-    os.system("mimms -c %s %s" % (work[0], work[1]))
-    # convertToMp4(work[1], work[2])
-    print "Finished", work[1]
+def download(video_link, courseName):
+    output_name = re.search(r"[a-z]+[0-9]+[a-z]?/[0-9]+",video_link).group(0).replace("/","_")
+    output_wmv = output_name + ".wmv"
+    output_mp4 = output_name + ".mp4"
     
-def downloadAllLectures(username, courseName, password):
-    br = Browser()
-    br.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6; en-us) AppleWebKit/531.9 (KHTML, like Gecko) Version/4.0.3 Safari/531.9')]
-    br.set_handle_robots(False)
-    br.open("https://myvideosu.stanford.edu/oce/currentquarter.aspx")
-    assert br.viewing_html()
-    br.select_form(name="login")
-    br["username"] = username
-    br["password"] = password
+    if os.path.exists(output_wmv) or os.path.exists(courseName + "/" + output_wmv) or os.path.exists(courseName + "/" + output_mp4) or os.path.exists("watched/"+output_wmv) or os.path.exists(output_mp4) or os.path.exists("watched/"+output_mp4):
+        print "Already downloaded " + output_wmv
+    else:
+        print "Downloading " + output_wmv
+        os.system("mimms -c %s %s" % (video_link, output_wmv))
+        # convertToMp4(output_wmv, output_mp4)
+        print "Finished downloading " + output_wmv
 
-    # Open the course page for the title you're looking for 
+def loginAndGoToCoursePage(browser, username, password, courseName):
+    browser.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6; en-us) AppleWebKit/531.9 (KHTML, like Gecko) Version/4.0.3 Safari/531.9')]
+    browser.set_handle_robots(False)
+    browser.open("https://myvideosu.stanford.edu/oce/currentquarter.aspx")
+    assert browser.viewing_html()
+    browser.select_form(name="login")
+    browser["username"] = username
+    browser["password"] = password
+
+    # Open the course page for the title you're looking for
     print "Logging in to myvideosu.stanford.edu..."
-    response = br.submit()
+    response = browser.submit()
     try:
-        response = br.follow_link(text=courseName)
+        response = browser.follow_link(text=courseName)
     except:
-        print "Login Error: username or password likely malformed"
+        print "Login Error: username, password, or courseName likely malformed"
         sys.exit(0)
-    #print response.read()    
+    #print response.read()
     print "Logged in, going to course link."
 
+def downloadAllVideosInFile(link_file_name, courseName):
+    link_file = open(link_file_name, 'r')
+    print "Downloading video streams."
+    for line in link_file:
+        video_link = line.strip()
+        download(video_link, courseName)
+    link_file.close()
+    print "Done!"
+
+def writeLinksToFile(browser, link_file_name):
     # Build up a list of lectures
     print "Loading video links."
     links = []
-    for link in br.links(text="WMP"):
+    for link in browser.links(text="WMP"):
         links.append(re.search(r"'(.*)'",link.url).group(1))
-    link_file = open('links.txt', 'w')
     # So we download the oldest ones first.
     links.reverse()
+    print "Found %d links, getting video streams." % (len(links))
 
-    print "Found %d links, getting video streams."%(len(links))
-    videos = []
+    link_file = open(link_file_name, 'w')
     for link in links:
-        response = br.open(link)
+        response = browser.open(link)
         soup = BeautifulSoup(response.read())
         video = soup.find('object', id='WMPlayer')['data']
-        video = re.sub("http","mms",video)        
+        video = re.sub("http","mms",video)
         video = video.replace(' ', '%20') # remove spaces, they break urls
-        output_name = re.search(r"[a-z]+[0-9]+[a-z]?/[0-9]+",video).group(0).replace("/","_") #+ ".wmv"
-        output_wmv = output_name + ".wmv"
-        link_file.write(video + '\n')
         print video
-        output_mp4 = output_name + ".mp4"
-        videos.append((video, output_wmv, output_mp4))
+        link_file.write(video + '\n')
     link_file.close()
 
-    print "Downloading %d video streams."%(len(videos))
-    for video in videos:
-        download(video, courseName)
+def processCourse(username, courseName, password):
+    br = Browser()
+    link_file_name = courseName.replace(' ', '') + '_links.txt'
 
-    print "Done!"
+    loginAndGoToCoursePage(br, username, password, courseName)
+    writeLinksToFile(br, link_file_name)
+    downloadAllVideosInFile(link_file_name, courseName);
 
 def downloadAllCourses(username, courseNames):
     password = getpass()
     for courseName in courseNames:
         print "Downloading '" + courseName + "'..."
-        downloadAllLectures(username, courseName, password)
+        processCourse(username, courseName, password)
 
-if __name__ == '__main__':    
+def main():
     if (len(sys.argv) < 3):
         print "Usage: ./scrape.py [Stanford ID] 'Interactive Computer Graphics' 'Programming Abstractions' ..."
     else:
@@ -112,3 +120,5 @@ if __name__ == '__main__':
         courseNames = sys.argv[2:len(sys.argv)]
         downloadAllCourses(username, courseNames)
 
+if __name__ == '__main__':
+    main();

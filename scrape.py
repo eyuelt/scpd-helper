@@ -40,13 +40,13 @@ def download(video_link, courseName):
     output_wmv = output_name + ".wmv"
     output_mp4 = output_name + ".mp4"
     
-    if os.path.exists(output_wmv) or os.path.exists(courseName + "/" + output_wmv) or os.path.exists(courseName + "/" + output_mp4) or os.path.exists("watched/"+output_wmv) or os.path.exists(output_mp4) or os.path.exists("watched/"+output_mp4):
-        print "Already downloaded " + output_wmv
+    if os.path.exists(output_wmv) or os.path.exists(output_mp4) or os.path.exists(courseName + "/" + output_wmv) or os.path.exists(courseName + "/" + output_mp4):
+        print "Already downloaded " + output_name
     else:
-        print "Downloading " + output_wmv
+        print "Downloading " + output_name
         os.system("mimms -c %s %s" % (video_link, output_wmv))
         # convertToMp4(output_wmv, output_mp4)
-        print "Finished downloading " + output_wmv
+        print "Finished downloading " + output_name
 
 def loginAndGoToCoursePage(browser, username, password, courseName):
     browser.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6; en-us) AppleWebKit/531.9 (KHTML, like Gecko) Version/4.0.3 Safari/531.9')]

@@ -48,26 +48,6 @@ def download(video_link, courseName):
         # convertToMp4(output_wmv, output_mp4)
         print "Finished downloading " + output_name
 
-def loginAndGoToCoursePage(browser, username, password, courseName):
-    browser.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6; en-us) AppleWebKit/531.9 (KHTML, like Gecko) Version/4.0.3 Safari/531.9')]
-    browser.set_handle_robots(False)
-    browser.open("https://myvideosu.stanford.edu/oce/currentquarter.aspx")
-    assert browser.viewing_html()
-    browser.select_form(name="login")
-    browser["username"] = username
-    browser["password"] = password
-
-    # Open the course page for the title you're looking for
-    print "Logging in to myvideosu.stanford.edu..."
-    response = browser.submit()
-    try:
-        response = browser.follow_link(text=courseName)
-    except:
-        print "Login Error: username, password, or courseName likely malformed"
-        sys.exit(0)
-    #print response.read()
-    print "Logged in, going to course link."
-
 def downloadAllVideosInFile(link_file_name, courseName):
     link_file = open(link_file_name, 'r')
     print "Downloading video streams."
@@ -97,6 +77,26 @@ def writeLinksToFile(browser, link_file_name):
         print video
         link_file.write(video + '\n')
     link_file.close()
+
+def loginAndGoToCoursePage(browser, username, password, courseName):
+    browser.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6; en-us) AppleWebKit/531.9 (KHTML, like Gecko) Version/4.0.3 Safari/531.9')]
+    browser.set_handle_robots(False)
+    browser.open("https://myvideosu.stanford.edu/oce/currentquarter.aspx")
+    assert browser.viewing_html()
+    browser.select_form(name="login")
+    browser["username"] = username
+    browser["password"] = password
+
+    # Open the course page for the title you're looking for
+    print "Logging in to myvideosu.stanford.edu..."
+    response = browser.submit()
+    try:
+        response = browser.follow_link(text=courseName)
+    except:
+        print "Login Error: username, password, or courseName likely malformed"
+        sys.exit(0)
+    #print response.read()
+    print "Logged in, going to course link."
 
 def processCourse(username, courseName, password):
     br = Browser()

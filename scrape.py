@@ -42,7 +42,7 @@ def download(video_link, courseName):
     output_wmv = output_name + ".wmv"
     output_mp4 = output_name + ".mp4"
     
-    if os.path.exists(output_wmv) or os.path.exists(output_mp4) or os.path.exists(courseName + "/" + output_wmv) or os.path.exists(courseName + "/" + output_mp4):
+    if os.path.exists(output_wmv) or os.path.exists(output_mp4):
         print "Already downloaded " + output_name
     else:
         print "Downloading " + output_name
@@ -100,11 +100,18 @@ def loginAndGoToCoursePage(browser, username, password, courseName):
     #print response.read()
     print "Logged in, going to course link."
 
-def processCourse(username, courseName, password):
+def goToCourseDir(video_dir, courseName):
+    courseDir = video_dir + '/' + courseName
+    if not os.path.exists(courseDir):
+        os.mkdir(courseDir)
+    os.chdir(courseDir)
+
+def processCourse(prefs, courseName, password):
     br = Browser()
     link_file_name = courseName.replace(' ', '') + '_links.txt'
 
-    loginAndGoToCoursePage(br, username, password, courseName)
+    goToCourseDir(prefs["download_directory"], courseName)
+    loginAndGoToCoursePage(br, prefs["stanford_id"], password, courseName)
     writeLinksToFile(br, link_file_name)
     downloadAllVideosInFile(link_file_name, courseName);
 
@@ -112,7 +119,7 @@ def downloadAllCourses(prefs, courseNames):
     password = getpass()
     for courseName in courseNames:
         print "Downloading '" + courseName + "'..."
-        processCourse(username, courseName, password)
+        processCourse(prefs, courseName, password)
 
 def updateLastRun(script_dir, filename='.lastrun'):
     file = open(script_dir + '/' + filename, 'w')
@@ -135,7 +142,11 @@ def main():
     else:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         prefs = getPrefs(script_dir)
-        #downloadAllCourses(prefs, prefs["courses"])
+        if os.path.exists(prefs["download_directory"]):
+            downloadAllCourses(prefs, prefs["courses"])
+        else:
+            print 'Download directory "' + prefs["download_directory"] + '" does not exist'
+            sys.exit(1)
         updateLastRun(script_dir)
 
 if __name__ == '__main__':

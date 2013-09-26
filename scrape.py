@@ -2,7 +2,9 @@
 import re
 import os
 import sys
+import json
 from getpass import *
+from datetime import datetime
 from mechanize import Browser
 from BeautifulSoup import BeautifulSoup
 
@@ -94,7 +96,7 @@ def loginAndGoToCoursePage(browser, username, password, courseName):
         response = browser.follow_link(text=courseName)
     except:
         print "Login Error: username, password, or courseName likely malformed"
-        sys.exit(0)
+        sys.exit(1)
     #print response.read()
     print "Logged in, going to course link."
 
@@ -106,19 +108,35 @@ def processCourse(username, courseName, password):
     writeLinksToFile(br, link_file_name)
     downloadAllVideosInFile(link_file_name, courseName);
 
-def downloadAllCourses(username, courseNames):
+def downloadAllCourses(prefs, courseNames):
     password = getpass()
     for courseName in courseNames:
         print "Downloading '" + courseName + "'..."
         processCourse(username, courseName, password)
 
-def main():
-    if (len(sys.argv) < 3):
-        print "Usage: ./scrape.py [Stanford ID] 'Interactive Computer Graphics' 'Programming Abstractions' ..."
+def updateLastRun(script_dir, filename='.lastrun'):
+    file = open(script_dir + '/' + filename, 'w')
+    file.write(datetime.now().strftime('%m-%d-%Y %H:%M:%S'));
+
+def getPrefs(script_dir, filename='prefs.json'):
+    prefs_file = script_dir + '/' + filename
+    if os.path.exists(prefs_file):
+        json_str = open(prefs_file).read()
+        return json.loads(json_str)
     else:
-        username = sys.argv[1]
-        courseNames = sys.argv[2:len(sys.argv)]
-        downloadAllCourses(username, courseNames)
+        print "Preferences file not found"
+        print prefs_file
+        sys.exit(1)
+
+def main():
+    if (len(sys.argv) < 1):
+        #print "Usage: ./scrape.py [Stanford ID] 'Interactive Computer Graphics' 'Programming Abstractions' ..."
+        print "Usage: ./scrape.py"
+    else:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        prefs = getPrefs(script_dir)
+        #downloadAllCourses(prefs, prefs["courses"])
+        updateLastRun(script_dir)
 
 if __name__ == '__main__':
     main();

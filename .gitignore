@@ -1,5 +1,2 @@
-*.mp4
-*.wmv
-*DS_Store
-*_links.txt
-videos/
+prefs.json
+.lastrun

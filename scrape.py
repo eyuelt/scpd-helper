@@ -88,14 +88,22 @@ def loginAndGoToCoursePage(browser, username, password, courseName):
     browser.select_form(name="login")
     browser["username"] = username
     browser["password"] = password
+    response = browser.submit()
+
+    # Handle two-factor auth
+    try:
+        browser.select_form(name="login")
+        browser["otp"] = raw_input("OTP: ");
+        response = browser.submit()
+    except:
+        pass
 
     # Open the course page for the title you're looking for
     print "Logging in to myvideosu.stanford.edu..."
-    response = browser.submit()
     try:
         response = browser.follow_link(text=courseName)
     except:
-        print "Login Error: username, password, or courseName likely malformed"
+        print "Login Error: username, otp, password, or courseName likely malformed"
         sys.exit(1)
     #print response.read()
     print "Logged in, going to course link."

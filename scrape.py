@@ -35,7 +35,8 @@ class SCPDScraper:
         os.system('HandBrakeCLI -i %s -o %s' % (wmv_file, mp4_file))
         os.system('rm -f %s' % wmv_file)
 
-    def download(self, video_link, courseName):
+    #TODO: why is coursename here?
+    def download(self, video_link, coursename):
         output_name = re.search(r"[a-z]+[0-9]+[a-z]?/[0-9]+",video_link).group(0).replace("/","_")
         output_wmv = output_name + ".wmv"
         output_mp4 = output_name + ".mp4"
@@ -48,12 +49,12 @@ class SCPDScraper:
             # convertToMp4(output_wmv, output_mp4)
             print "Finished downloading " + output_name
 
-    def downloadAllVideosInFile(self, link_file_name, courseName):
+    def downloadAllVideosInFile(self, link_file_name, coursename):
         link_file = open(link_file_name, 'r')
         print "Downloading video streams."
         for line in link_file:
             video_link = line.strip()
-            self.download(video_link, courseName)
+            self.download(video_link, coursename)
         link_file.close()
         print "Done!"
 
@@ -71,22 +72,22 @@ class SCPDScraper:
         x["playerType"] = args[6]
         return x
 
-    def getCookieStr(self, browser):
+    def getCookieStr(self):
         cookiestr = ''
-        for c in browser._ua_handlers["_cookies"].cookiejar:
+        for c in self.browser._ua_handlers["_cookies"].cookiejar:
             cookiestr += c.name + '=' + c.value + ';'
         return cookiestr
 
     # slphash is some weird auth hash for silverlight
-    def getSlpHash(self, browser, x, script_dir, curl_filename='slphash.curl'):
-        cookie = self.getCookieStr(browser)
+    def getSlpHash(self, x, curl_filename='slphash.curl'):
+        cookie = self.getCookieStr()
 
         # if the cookie is the same, we shouldn't need to get another slphash
         if cookie == self.cached_cookie:
             return self.cached_slphash
 
         # send a curl to the server to get the slphash
-        curl_script = script_dir + '/' + curl_filename
+        curl_script = self.script_dir + '/' + curl_filename
         slphash = subprocess.check_output(['bash', curl_script, cookie, x['collGuid'], x['coGuid'], x['desiredAuthType']])
         slphash = re.findall('"[^"]*"', slphash)[1][1:-1]
 
@@ -94,9 +95,9 @@ class SCPDScraper:
         self.cached_slphash = slphash
         return slphash
 
-    def getUrlForLink(self, browser, link, script_dir):
+    def getUrlForLink(self, link):
         x = self.getUrlParams(link)
-        slphash = self.getSlpHash(browser, x, script_dir);
+        slphash = self.getSlpHash(x);
 
         url = 'http://myvideosv.stanford.edu/player/slplayer.aspx?'
         url += 'coll={0}&course={1}&co={2}&lecture={3}'.format(x["collGuid"], x["courseName"], x["coGuid"], x["lectureName"])
@@ -105,20 +106,20 @@ class SCPDScraper:
         url += '&authtype={0}&slp={1}{2}'.format(x["desiredAuthType"], slphash, x["playerType"])
         return url
 
-    def writeLinksToFile(self, browser, link_file_name, script_dir):
+    def writeLinksToFile(self, link_file_name):
         # Build up a list of lectures
         print "Loading video links."
         links = []
-        for link in browser.links(text="WMP"):
+        for link in self.browser.links(text="WMP"):
             #links.append(re.search(r"'(.*)'",link.url).group(1))
-            links.append(self.getUrlForLink(browser, link.url, script_dir))
+            links.append(self.getUrlForLink(link.url))
         # So we download the oldest ones first.
         links.reverse()
         print "Found %d links, getting video streams." % (len(links))
 
         link_file = open(link_file_name, 'w')
         for link in links:
-            response = browser.open(link)
+            response = self.browser.open(link)
             soup = BeautifulSoup(response.read())
             video = soup.find('object', id='WMPlayer')['data']
             video = re.sub("http","mms",video)
@@ -127,61 +128,60 @@ class SCPDScraper:
             link_file.write(video + '\n')
         link_file.close()
 
-    def loginAndGoToCoursePage(self, browser, username, password, courseName):
-        browser.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6; en-us) AppleWebKit/531.9 (KHTML, like Gecko) Version/4.0.3 Safari/531.9')]
-        browser.set_handle_robots(False)
-        browser.open("https://myvideosu.stanford.edu/oce/currentquarter.aspx")
-        assert browser.viewing_html()
-        browser.select_form(name="login")
-        browser["username"] = username
-        browser["password"] = password
-        response = browser.submit()
+    def loginAndGoToCoursePage(self, username, password, coursename):
+        self.browser.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6; en-us) AppleWebKit/531.9 (KHTML, like Gecko) Version/4.0.3 Safari/531.9')]
+        self.browser.set_handle_robots(False)
+        self.browser.open("https://myvideosu.stanford.edu/oce/currentquarter.aspx")
+        assert self.browser.viewing_html()
+        self.browser.select_form(name="login")
+        self.browser["username"] = username
+        self.browser["password"] = password
+        response = self.browser.submit()
 
         # Handle two-factor auth
         try:
-            browser.select_form(name="login")
-            browser["otp"] = raw_input("OTP: ");
-            response = browser.submit()
+            self.browser.select_form(name="login")
+            self.browser["otp"] = raw_input("OTP: ");
+            response = self.browser.submit()
         except:
             pass
 
         # Open the course page for the title you're looking for
         print "Logging in to myvideosu.stanford.edu..."
         try:
-            response = browser.follow_link(text=courseName)
+            response = self.browser.follow_link(text=coursename)
         except:
             print "Login Error: username, otp, password, or courseName likely malformed"
             sys.exit(1)
         #print response.read()
         print "Logged in, going to course link."
 
-    def goToCourseDir(self, video_dir, courseName):
-        courseDir = video_dir + '/' + courseName
-        if not os.path.exists(courseDir):
-            os.mkdir(courseDir)
-        os.chdir(courseDir)
+    def goToCourseDir(self, video_dir, coursename):
+        coursedir = video_dir + '/' + coursename
+        if not os.path.exists(coursedir):
+            os.mkdir(coursedir)
+        os.chdir(coursedir)
 
-    def processCourse(self, prefs, courseName, password, script_dir):
-        br = Browser()
-        link_file_name = courseName.replace(' ', '') + '_links.txt'
+    def processCourse(self, coursename, password):
+        link_file_name = coursename.replace(' ', '') + '_links.txt'
 
-        self.goToCourseDir(prefs["download_directory"], courseName)
-        self.loginAndGoToCoursePage(br, prefs["stanford_id"], password, courseName)
-        self.writeLinksToFile(br, link_file_name, script_dir)
-        self.downloadAllVideosInFile(link_file_name, courseName);
+        self.goToCourseDir(self.prefs["download_directory"], coursename)
+        self.loginAndGoToCoursePage(self.prefs["stanford_id"], password, coursename)
+        self.writeLinksToFile(link_file_name)
+        self.downloadAllVideosInFile(link_file_name, coursename);
 
-    def downloadAllCourses(self, prefs, courseNames, script_dir):
+    def downloadAllCourses(self, coursenames):
         password = getpass()
-        for courseName in courseNames:
-            print "Downloading '" + courseName + "'..."
-            self.processCourse(prefs, courseName, password, script_dir)
+        for coursename in coursenames:
+            print "Downloading '" + coursename + "'..."
+            self.processCourse(coursename, password)
 
-    def updateLastRun(self, script_dir, filename='.lastrun'):
-        file = open(script_dir + '/' + filename, 'w')
-        file.write(datetime.now().strftime('%m-%d-%Y %H:%M:%S'));
+    def updateLastRun(self, filename='.lastrun'):
+        lastrunfile = open(self.script_dir + '/' + filename, 'w')
+        lastrunfile.write(datetime.now().strftime('%m-%d-%Y %H:%M:%S'));
 
-    def getPrefs(self, script_dir, filename='prefs.json'):
-        prefs_file = script_dir + '/' + filename
+    def getPrefs(self, filename):
+        prefs_file = self.script_dir + '/' + filename
         if os.path.exists(prefs_file):
             json_str = open(prefs_file).read()
             return json.loads(json_str)
@@ -191,16 +191,19 @@ class SCPDScraper:
             sys.exit(1)
 
     def scrape(self):
+        if os.path.exists(self.prefs["download_directory"]):
+            self.downloadAllCourses(self.prefs["courses"])
+        else:
+            print 'Download directory "' + self.prefs["download_directory"] + '" does not exist'
+            sys.exit(1)
+        self.updateLastRun()
+
+    def __init__(self, prefs_file='prefs.json'):
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.prefs = self.getPrefs(prefs_file)
+        self.browser = Browser()
         self.cached_cookie = ''
         self.cached_slphash = ''
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        prefs = self.getPrefs(script_dir)
-        if os.path.exists(prefs["download_directory"]):
-            self.downloadAllCourses(prefs, prefs["courses"], script_dir)
-        else:
-            print 'Download directory "' + prefs["download_directory"] + '" does not exist'
-            sys.exit(1)
-        self.updateLastRun(script_dir)
 
 
 def main():

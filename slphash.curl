@@ -1,4 +1,4 @@
-curl \
+curl -s \
   -X POST \
   -H "Accept: */*" \
   -H "Accept-Encoding: gzip,deflate,sdch" \

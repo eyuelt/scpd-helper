@@ -146,14 +146,36 @@ class SCPDScraper:
             link_file.write(video + '\n')
         link_file.close()
 
-    def loginAndGoToCoursePage(self, username, password, course_name):
+    def goToCourseDir(self, video_dir, course_name):
+        coursedir = video_dir + '/' + course_name
+        if not os.path.exists(coursedir):
+            os.mkdir(coursedir)
+        os.chdir(coursedir)
+
+    def processCourse(self, course_name):
+        link_file_name = course_name.replace(' ', '') + '_links.txt'
+
+        self.goToCourseDir(self.prefs["download_directory"], course_name)
+        self.writeLinksToFile(link_file_name)
+        self.downloadAllVideosInFile(link_file_name, course_name);
+
+    def navigateToCoursePage(self, course_name):
+        # Open the course page for the title you're looking for
+        try:
+            self.browser.follow_link(text=course_name)
+        except:
+            print "Login Error"
+            sys.exit(1)
+
+    def login(self, username):
+        print "Logging in to myvideosu.stanford.edu..."
         self.browser.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6; en-us) AppleWebKit/531.9 (KHTML, like Gecko) Version/4.0.3 Safari/531.9')]
         self.browser.set_handle_robots(False)
         self.browser.open("https://myvideosu.stanford.edu/oce/currentquarter.aspx")
         assert self.browser.viewing_html()
         self.browser.select_form(name="login")
         self.browser["username"] = username
-        self.browser["password"] = password
+        self.browser["password"] = getpass()
         response = self.browser.submit()
 
         # Handle two-factor auth
@@ -164,35 +186,13 @@ class SCPDScraper:
         except:
             pass
 
-        # Open the course page for the title you're looking for
-        print "Logging in to myvideosu.stanford.edu..."
-        try:
-            response = self.browser.follow_link(text=course_name)
-        except:
-            print "Login Error: username, otp, password, or courseName likely malformed"
-            sys.exit(1)
-        #print response.read()
-        print "Logged in, going to course link."
-
-    def goToCourseDir(self, video_dir, course_name):
-        coursedir = video_dir + '/' + course_name
-        if not os.path.exists(coursedir):
-            os.mkdir(coursedir)
-        os.chdir(coursedir)
-
-    def processCourse(self, course_name, password):
-        link_file_name = course_name.replace(' ', '') + '_links.txt'
-
-        self.goToCourseDir(self.prefs["download_directory"], course_name)
-        self.loginAndGoToCoursePage(self.prefs["stanford_id"], password, course_name)
-        self.writeLinksToFile(link_file_name)
-        self.downloadAllVideosInFile(link_file_name, course_name);
-
     def downloadAllCourses(self, course_names):
-        password = getpass()
+        self.login(self.prefs["stanford_id"])
         for course_name in course_names:
+            self.navigateToCoursePage(course_name)
             print "Downloading '" + course_name + "'..."
-            self.processCourse(course_name, password)
+            self.processCourse(course_name)
+            self.browser.back()
 
     def updateLastRun(self, filename='.lastrun'):
         lastrun_file = open(self.script_dir + '/' + filename, 'w')

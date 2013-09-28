@@ -1,0 +1,15 @@
+curl \
+  -X POST \
+  -H "Accept: */*" \
+  -H "Accept-Encoding: gzip,deflate,sdch" \
+  -H "Accept-Language: en-US,en;q=0.8" \
+  -H "Connection: keep-alive" \
+  -H "Content-Length: 128" \
+  -H "Content-Type: application/json; charset=UTF-8" \
+  -H "Cookie: $1" \
+  -H "Host: myvideosu.stanford.edu" \
+  -H "Origin: https://myvideosu.stanford.edu" \
+  -H "Referer: https://myvideosu.stanford.edu/OCE/GradCourseInfo.aspx?coll=421ca9fd-c18c-4d3a-80a2-ea3325f3ac88&course=CS242" \
+  -H "User-Agent: Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6; en-us) AppleWebKit/531.9 (KHTML, like Gecko) Version/4.0.3 Safari/531.9" \
+  -d "{'collGuidstr':'$2','coGuidstr':'$3','desiredAuthType':'$4'}" \
+  https://myvideosu.stanford.edu/OCE/GradCourseInfo.aspx/playSLVideo

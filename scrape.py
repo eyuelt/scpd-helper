@@ -3,6 +3,7 @@ import re
 import os
 import sys
 import json
+import subprocess
 from getpass import *
 from datetime import datetime
 from mechanize import Browser
@@ -32,6 +33,11 @@ called watched.
 
 """
 
+# globals
+saved_cookie=''
+saved_slphash=''
+
+
 def convertToMp4(wmv_file, mp4_file):
     print "Converting " + wmv_file + " to " + mp4_file
     os.system('HandBrakeCLI -i %s -o %s' % (wmv_file, mp4_file))
@@ -59,12 +65,70 @@ def downloadAllVideosInFile(link_file_name, courseName):
     link_file.close()
     print "Done!"
 
-def writeLinksToFile(browser, link_file_name):
+def getUrlParams(link):
+    link = link.replace("%22" ,"'")
+    args = re.findall("'[^']*'", link)
+    args = [s[1:-1] for s in args]
+    x = {}
+    x["collGuid"] = args[0]
+    x["courseName"] = args[1]
+    x["coGuid"] = args[2]
+    x["lectureName"] = args[3]
+    x["lectureDesc"] = args[4]
+    x["desiredAuthType"] = args[5]
+    x["playerType"] = args[6]
+    return x
+
+def getCookieStr(browser):
+    cookiestr = ''
+    for c in browser._ua_handlers["_cookies"].cookiejar:
+        cookiestr += c.name + '=' + c.value + ';'
+    return cookiestr
+
+# slphash is some weird auth hash for silverlight
+def getSlpHash(browser, x, script_dir, curl_filename='slphash.curl'):
+    #global saved_cookie   # yeah, i know
+    #global saved_slphash  # im sorry
+
+    cookie = getCookieStr(browser)
+
+    # if the cookie is the same, we shouldn't need to get another slphash
+    #if cookie == saved_cookie:
+    #    return saved_slphash
+
+    # send a curl to the server to get the slphash
+    curl_script = script_dir + '/' + curl_filename
+    slphash = subprocess.check_output(['bash', curl_script, cookie, x['collGuid'], x['coGuid'], x['desiredAuthType']])
+    slphash = re.findall('"[^"]*"', slphash)[1][1:-1]
+
+    import time
+    time.sleep(2)
+
+    print slphash
+    #saved_cookie = cookie
+    #saved_slphash = slphash
+    return "SLPHASH" # TODO: send curl to get hash
+
+def getUrlForLink(browser, link, script_dir):
+    x = getUrlParams(link)
+    slphash = getSlpHash(browser, x, script_dir);
+
+    url = 'http://myvideosv.stanford.edu/player/slplayer.aspx?'
+    url += 'coll={0}&course={1}&co={2}&lecture={3}'.format(x["collGuid"], x["courseName"], x["coGuid"], x["lectureName"])
+    if x["lectureDesc"] == "problem session":
+        url += '&lectureType=ps'
+    url += '&authtype={0}&slp={1}{2}'.format(x["desiredAuthType"], slphash, x["playerType"])
+
+    print url
+    return url
+
+def writeLinksToFile(browser, link_file_name, script_dir):
     # Build up a list of lectures
     print "Loading video links."
     links = []
     for link in browser.links(text="WMP"):
-        links.append(re.search(r"'(.*)'",link.url).group(1))
+        #links.append(re.search(r"'(.*)'",link.url).group(1))
+        links.append(getUrlForLink(browser, link.url, script_dir))
     # So we download the oldest ones first.
     links.reverse()
     print "Found %d links, getting video streams." % (len(links))
@@ -114,20 +178,20 @@ def goToCourseDir(video_dir, courseName):
         os.mkdir(courseDir)
     os.chdir(courseDir)
 
-def processCourse(prefs, courseName, password):
+def processCourse(prefs, courseName, password, script_dir):
     br = Browser()
     link_file_name = courseName.replace(' ', '') + '_links.txt'
 
     goToCourseDir(prefs["download_directory"], courseName)
     loginAndGoToCoursePage(br, prefs["stanford_id"], password, courseName)
-    writeLinksToFile(br, link_file_name)
+    writeLinksToFile(br, link_file_name, script_dir)
     downloadAllVideosInFile(link_file_name, courseName);
 
-def downloadAllCourses(prefs, courseNames):
+def downloadAllCourses(prefs, courseNames, script_dir):
     password = getpass()
     for courseName in courseNames:
         print "Downloading '" + courseName + "'..."
-        processCourse(prefs, courseName, password)
+        processCourse(prefs, courseName, password, script_dir)
 
 def updateLastRun(script_dir, filename='.lastrun'):
     file = open(script_dir + '/' + filename, 'w')
@@ -151,7 +215,7 @@ def main():
         script_dir = os.path.dirname(os.path.abspath(__file__))
         prefs = getPrefs(script_dir)
         if os.path.exists(prefs["download_directory"]):
-            downloadAllCourses(prefs, prefs["courses"])
+            downloadAllCourses(prefs, prefs["courses"], script_dir)
         else:
             print 'Download directory "' + prefs["download_directory"] + '" does not exist'
             sys.exit(1)

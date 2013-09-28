@@ -26,14 +26,10 @@ Unfortunately, there are lots of dependencies to get it up and running
 
 Usage: python scrape.py [Stanford ID] "Interactive Computer Graphics"
 
-The way I use it is to keep a folder of videos, and once I have watched them, move them
-into a subfolder called watched. So it also wont redownload files that are in a subfolder
-called watched.
-
-
 """
 
 class SCPDScraper:
+
     def convertToMp4(self, wmv_file, mp4_file):
         print "Converting " + wmv_file + " to " + mp4_file
         os.system('HandBrakeCLI -i %s -o %s' % (wmv_file, mp4_file))
@@ -83,27 +79,20 @@ class SCPDScraper:
 
     # slphash is some weird auth hash for silverlight
     def getSlpHash(self, browser, x, script_dir, curl_filename='slphash.curl'):
-        #global saved_cookie   # yeah, i know
-        #global saved_slphash  # im sorry
-
         cookie = self.getCookieStr(browser)
 
         # if the cookie is the same, we shouldn't need to get another slphash
-        #if cookie == saved_cookie:
-        #    return saved_slphash
+        if cookie == self.cached_cookie:
+            return self.cached_slphash
 
         # send a curl to the server to get the slphash
         curl_script = script_dir + '/' + curl_filename
         slphash = subprocess.check_output(['bash', curl_script, cookie, x['collGuid'], x['coGuid'], x['desiredAuthType']])
         slphash = re.findall('"[^"]*"', slphash)[1][1:-1]
 
-        import time
-        time.sleep(2)
-
-        print slphash
-        #saved_cookie = cookie
-        #saved_slphash = slphash
-        return "SLPHASH" # TODO: send curl to get hash
+        self.cached_cookie = cookie
+        self.cached_slphash = slphash
+        return slphash
 
     def getUrlForLink(self, browser, link, script_dir):
         x = self.getUrlParams(link)
@@ -114,8 +103,6 @@ class SCPDScraper:
         if x["lectureDesc"] == "problem session":
             url += '&lectureType=ps'
         url += '&authtype={0}&slp={1}{2}'.format(x["desiredAuthType"], slphash, x["playerType"])
-
-        print url
         return url
 
     def writeLinksToFile(self, browser, link_file_name, script_dir):
@@ -204,6 +191,8 @@ class SCPDScraper:
             sys.exit(1)
 
     def scrape(self):
+        self.cached_cookie = ''
+        self.cached_slphash = ''
         script_dir = os.path.dirname(os.path.abspath(__file__))
         prefs = self.getPrefs(script_dir)
         if os.path.exists(prefs["download_directory"]):

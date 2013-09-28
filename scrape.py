@@ -3,10 +3,10 @@ import re
 import os
 import sys
 import json
+import mechanize
 import subprocess
 from getpass import *
 from datetime import datetime
-from mechanize import Browser
 from BeautifulSoup import BeautifulSoup
 
 """
@@ -33,7 +33,9 @@ class SCPDScraper:
     def __init__(self, prefs_file='prefs.json'):
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
         self.prefs = self.getPrefs(prefs_file)
-        self.browser = Browser()
+        self.browser = mechanize.Browser()
+        self.browser.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6; en-us) AppleWebKit/531.9 (KHTML, like Gecko) Version/4.0.3 Safari/531.9')]
+        self.browser.set_handle_robots(False)
         self.cached_cookie = ''
         self.cached_slphash = ''
 
@@ -129,7 +131,6 @@ class SCPDScraper:
         print "Loading video links."
         links = []
         for link in self.browser.links(text="WMP"):
-            #links.append(re.search(r"'(.*)'",link.url).group(1))
             links.append(self.getUrlForLink(link.url))
         # So we download the oldest ones first.
         links.reverse()
@@ -147,52 +148,60 @@ class SCPDScraper:
         link_file.close()
 
     def goToCourseDir(self, video_dir, course_name):
-        coursedir = video_dir + '/' + course_name
-        if not os.path.exists(coursedir):
-            os.mkdir(coursedir)
-        os.chdir(coursedir)
+        course_dir = video_dir + '/' + course_name
+        if not os.path.exists(course_dir):
+            os.mkdir(course_dir)
+        os.chdir(course_dir)
 
     def processCourse(self, course_name):
         link_file_name = course_name.replace(' ', '') + '_links.txt'
 
         self.goToCourseDir(self.prefs["download_directory"], course_name)
         self.writeLinksToFile(link_file_name)
-        self.downloadAllVideosInFile(link_file_name, course_name);
+        #self.downloadAllVideosInFile(link_file_name, course_name);
 
     def navigateToCoursePage(self, course_name):
         # Open the course page for the title you're looking for
         try:
             self.browser.follow_link(text=course_name)
         except:
-            print "Login Error"
+            print "Link Navagation Error"
             sys.exit(1)
 
-    def login(self, username):
-        print "Logging in to myvideosu.stanford.edu..."
-        self.browser.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6; en-us) AppleWebKit/531.9 (KHTML, like Gecko) Version/4.0.3 Safari/531.9')]
-        self.browser.set_handle_robots(False)
-        self.browser.open("https://myvideosu.stanford.edu/oce/currentquarter.aspx")
+    def goToCourseListPage(self):
+        course_list_page = 'https://myvideosu.stanford.edu/oce/currentquarter.aspx'
+        self.browser.open(course_list_page)
         assert self.browser.viewing_html()
-        self.browser.select_form(name="login")
-        self.browser["username"] = username
-        self.browser["password"] = getpass()
-        response = self.browser.submit()
 
-        # Handle two-factor auth
-        try:
-            self.browser.select_form(name="login")
-            self.browser["otp"] = raw_input("OTP: ");
-            response = self.browser.submit()
-        except:
-            pass
+        while not self.browser.geturl() == course_list_page:
+            try:
+                self.browser.select_form(name="login")
+                self.browser["username"] = self.prefs["stanford_id"]
+                self.browser["password"] = getpass()
+                response = self.browser.submit()
+            except mechanize._mechanize.FormNotFoundError:
+                print 'Error logging in'
+                sys.exit(1);
+            except:
+                pass
+
+            # Handle two-factor auth
+            try:
+                self.browser.select_form(name="login")
+                self.browser["otp"] = '' #So it will fail if we're not on OTP page (we want to prompt for pwd again)
+                self.browser["otp"] = raw_input("OTP: ");
+                response = self.browser.submit()
+            except:
+                pass
 
     def downloadAllCourses(self, course_names):
-        self.login(self.prefs["stanford_id"])
+        print "Logging in to myvideosu.stanford.edu..."
+        self.goToCourseListPage()
         for course_name in course_names:
             self.navigateToCoursePage(course_name)
             print "Downloading '" + course_name + "'..."
             self.processCourse(course_name)
-            self.browser.back()
+            self.goToCourseListPage();
 
     def updateLastRun(self, filename='.lastrun'):
         lastrun_file = open(self.script_dir + '/' + filename, 'w')
@@ -216,4 +225,4 @@ def main():
         scraper.scrape()
         
 if __name__ == '__main__':
-    main();
+    main()

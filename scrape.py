@@ -66,7 +66,8 @@ class SCPDScraper:
         else:
             print "Downloading " + output_name
             os.system("mimms -c %s %s" % (video_link, output_wmv))
-            # convertToMp4(output_wmv, output_mp4)
+            if self.prefs["convert_to_mp4"]:
+                convertToMp4(output_wmv, output_mp4)
             print "Finished downloading " + output_name
 
     def downloadAllVideosInFile(self, link_file_name, course_name):
@@ -158,7 +159,7 @@ class SCPDScraper:
 
         self.goToCourseDir(self.prefs["download_directory"], course_name)
         self.writeLinksToFile(link_file_name)
-        #self.downloadAllVideosInFile(link_file_name, course_name);
+        self.downloadAllVideosInFile(link_file_name, course_name);
 
     def navigateToCoursePage(self, course_name):
         # Open the course page for the title you're looking for

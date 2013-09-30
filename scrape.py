@@ -57,7 +57,7 @@ class SCPDScraper:
 
     #TODO: why is course_name here?
     def download(self, video_link, course_name):
-        output_name = re.search(r"[a-z]+[0-9]+[a-z]?/[0-9]+",video_link).group(0).replace("/","_")
+        output_name = re.search(r"[\w]+[0-9]+[\w]?/[0-9]+",video_link).group(0).replace("/","_").lower()
         output_wmv = output_name + ".wmv"
         output_mp4 = output_name + ".mp4"
         

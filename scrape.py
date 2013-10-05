@@ -67,7 +67,7 @@ class SCPDScraper:
             print "Downloading " + output_name
             os.system("mimms -c %s %s" % (video_link, output_wmv))
             if self.prefs["convert_to_mp4"]:
-                convertToMp4(output_wmv, output_mp4)
+                self.convertToMp4(output_wmv, output_mp4)
             print "Finished downloading " + output_name
 
     def downloadAllVideosInFile(self, link_file_name, course_name):

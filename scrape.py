@@ -183,7 +183,7 @@ class SCPDScraper:
             except mechanize._mechanize.FormNotFoundError:
                 print 'Error logging in'
                 sys.exit(1);
-            except:
+            except Exception:
                 pass
 
             # Handle two-factor auth
@@ -192,7 +192,7 @@ class SCPDScraper:
                 self.browser["otp"] = '' #So it will fail if we're not on OTP page (we want to prompt for pwd again)
                 self.browser["otp"] = raw_input("OTP: ");
                 response = self.browser.submit()
-            except:
+            except Exception:
                 pass
 
     def downloadAllCourses(self, course_names):

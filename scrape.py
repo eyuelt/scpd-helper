@@ -36,8 +36,6 @@ class SCPDScraper:
         self.browser = mechanize.Browser()
         self.browser.addheaders = [('User-agent', 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6; en-us) AppleWebKit/531.9 (KHTML, like Gecko) Version/4.0.3 Safari/531.9')]
         self.browser.set_handle_robots(False)
-        self.cached_cookie = ''
-        self.cached_slphash = ''
 
     def getPrefs(self, filename):
         prefs_file = self.script_dir + '/' + filename
@@ -93,38 +91,14 @@ class SCPDScraper:
         x["playerType"] = args[6]
         return x
 
-    def getCookieStr(self):
-        cookiestr = ''
-        for c in self.browser._ua_handlers["_cookies"].cookiejar:
-            cookiestr += c.name + '=' + c.value + ';'
-        return cookiestr
-
-    # slphash is some weird auth hash for silverlight
-    def getSlpHash(self, x, curl_filename='slphash.curl'):
-        cookie = self.getCookieStr()
-
-        # if the cookie is the same, we shouldn't need to get another slphash
-        if cookie == self.cached_cookie:
-            return self.cached_slphash
-
-        # send a curl to the server to get the slphash
-        curl_script = self.script_dir + '/' + curl_filename
-        slphash = subprocess.check_output(['bash', curl_script, cookie, x['collGuid'], x['coGuid'], x['desiredAuthType']])
-        slphash = re.findall('"[^"]*"', slphash)[1][1:-1]
-
-        self.cached_cookie = cookie
-        self.cached_slphash = slphash
-        return slphash
-
     def getUrlForLink(self, link):
         x = self.getUrlParams(link)
-        slphash = self.getSlpHash(x);
 
-        url = 'http://myvideosv.stanford.edu/player/slplayer.aspx?'
+        url = 'http://myvideosu.stanford.edu/player/slplayer.aspx?'
         url += 'coll={0}&course={1}&co={2}&lecture={3}'.format(x["collGuid"], x["courseName"], x["coGuid"], x["lectureName"])
         if x["lectureDesc"] == "problem session":
             url += '&lectureType=ps'
-        url += '&authtype={0}&slp={1}{2}'.format(x["desiredAuthType"], slphash, x["playerType"])
+        url += '&authtype={0}&wmp=true'.format(x["desiredAuthType"])
         return url
 
     def writeLinksToFile(self, link_file_name):

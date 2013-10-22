@@ -196,7 +196,7 @@ def main():
         #print "Usage: ./scrape.py [Stanford ID] 'Interactive Computer Graphics' 'Programming Abstractions' ..."
         print "Usage: ./scrape.py"
     else:
-        scraper = SCPDScraper()
+        scraper = SCPDScraper(sys.argv[1]) if len(sys.argv) > 1 else SCPDScraper()
         scraper.scrape()
         
 if __name__ == '__main__':

@@ -1,5 +1,17 @@
 #!/bin/bash
 
+trap cleanup_and_exit SIGINT SIGTERM
+trap hupexit SIGHUP
+
+cleanup_and_exit() {
+    kill -HUP -$$
+}
+
+hupexit() {
+    #SIGHUP caused by cleanup_and_exit
+    echo -e "\nInterrupted. All downloads killed."
+}
+
 # $1 is url and $2 is destination path
 start_download() {
     echo "Getting $2"

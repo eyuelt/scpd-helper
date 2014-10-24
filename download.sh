@@ -4,7 +4,7 @@
 start_download() {
     echo "Getting $2"
     tmpfilename="$2.tmp"
-    curl -s $1 > $2
+    curl -s $1 > $tmpfilename
     mv $tmpfilename $2
     echo "Finished downloading $2"
 }

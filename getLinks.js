@@ -27,6 +27,5 @@ if (process) process.exit();
         if (!lecture.url) return str;
         return str + lecture.url + "\n";
     }, "");
-    console.log(lectures);
-    alert(links);
+    console.log(links);
 })();

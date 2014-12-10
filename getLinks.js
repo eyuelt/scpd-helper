@@ -16,7 +16,7 @@ if (process) process.exit();
         lectures = lectures.concat(week.Lectures);
         return lectures;
     }, []);
-    lectures = lectures.reduce(function(lectures, lecture) {
+    lectures = lectures.reverse().reduce(function(lectures, lecture) {
         var lec = {};
         lec.date = lecture.LectureDate;
         lec.url = lecture.HiVideoDownloadUrl;
